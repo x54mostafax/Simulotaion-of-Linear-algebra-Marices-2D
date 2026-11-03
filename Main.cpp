@@ -45,11 +45,13 @@ class LinearAlgebra{
     string Name;
     
 };
+
 class Matrix2D{
     private:
     vector<vector<double>>T;
     vector<vector<double>>_RREF;
     vector<vector<double>>_Cofactor;
+    vector<vector<double>>_Inverse;
     public:
     int dim[2];
     vector<vector<double>> Matrix;
@@ -63,7 +65,7 @@ class Matrix2D{
     };
     
     
-    Matrix2D(vector<vector<double>> &M){
+    Matrix2D(const vector<vector<double>> &M){
         Matrix=M;
         dim[0]=M.size();
         dim[1]=M[0].size();
@@ -71,16 +73,16 @@ class Matrix2D{
     };
     
     void display(){
-        cout<<"X ";
+        cout<<"   ";
          for (int i = 0; i <dim[1]; i++) {
-             cout<<""<<i+1<<" ";
+             cout<<"C"<<i+1<<" ";
          }
          cout<<endl;
          for (int i = 0; i<dim[0];i++) {
-              cout<<""<<i+1;
+              cout<<"R"<<i+1;
               
              for (int j = 0; j<dim[1];j++) {
-                cout<<' '<<Matrix[i][j];
+                cout<<" "<<Matrix[i][j];
              }
              cout<<endl;
          }
@@ -117,49 +119,66 @@ class Matrix2D{
     
     
     // Transpose 
-    static Matrix2D Transpose(Matrix2D &M){
-        if(M.T.empty()){
+    Matrix2D TransposeMatix(){
+        if(T.empty()){
             cout<<"Iam empty\n";
-            M.T.resize(M.dim[1],vector<double>(M.dim[0]));
-            for (int i = 0; i<M.dim[0];i++) for (int j = 0; j<M.dim[1];j++) M.T[j][i]=M.Matrix[i][j];
+            T.resize(dim[1],vector<double>(dim[0]));
+            for (int i = 0; i<dim[0];i++) for (int j = 0; j<dim[1];j++)  T[j][i]=Matrix[i][j];
              
          };
-        return M.T;
+        return T;
     }
-    static Matrix2D Cofactor(Matrix2D &M){
-        if(!M._Cofactor.empty()) return M._Cofactor;
-        vector<int> PassedCoulmn(M.dim[1],0);
-        vector<vector<double>>CofactorMatrix(M.dim[0],vector<double>(M.dim[1],0));
-        vector<int> PassedRow(M.dim[0],0) ;
-        for (int r = 0; r < M.dim[0]; r++) {
-            for (int c = 0; c < M.dim[1]; c++) {
+    static vector<vector<double>> Transpose(const vector<vector<double>> &M){
+        vector<vector<double>>T(M[0].size(),vector<double>(M.size(),0));
+        for (int i = 0; i<M.size();i++) for (int j = 0; j<M[0].size();j++)  T[j][i]=M[i][j];
+        return T;
+    }
+    
+    vector<vector<double>> Cofactor(){
+        if(! _Cofactor.empty()) return _Cofactor;
+        vector<int> PassedCoulmn(dim[1],0);
+        vector<vector<double>>CofactorMatrix(dim[0],vector<double>(dim[1],0));
+        vector<int> PassedRow(dim[0],0) ;
+        for (int r = 0; r < dim[0]; r++) {
+            for (int c = 0; c < dim[1]; c++) {
                 PassedRow[r]=PassedCoulmn[c]=1;
-                CofactorMatrix[r][c]= Matrix2D::NDet(M,PassedCoulmn,PassedRow)*pow(-1,r-c);
+                CofactorMatrix[r][c]= NDet(PassedCoulmn,PassedRow)*pow(-1,r-c);
                 PassedCoulmn[c]=PassedRow[r]=0;
             }
         }
         return CofactorMatrix;
     }
 
-    static Matrix2D Adjoint(Matrix2D &M){Matrix2D R= Matrix2D::Cofactor(M);return Matrix2D::Transpose(R);}
+    Matrix2D Adjoint(){return Matrix2D::Transpose(Cofactor());}
     
-    static double Det(Matrix2D &M,vector<int> memo={},int cRow=0){
+    vector<vector<double>> InveresMatrix(){
+        if(!_Inverse.empty())return _Inverse;
+        _Inverse.resize(dim[0],vector<double>(dim[0]));
+        Matrix2D Segmented = Matrix2D::SegmentedMatrix(*this, Matrix2D::IDENTITY(dim[0])).RREF();
+        for (int r = 0; r < dim[0]; r++) {
+            for (int c = 0; c < dim[0]; c++) {
+                _Inverse[r][c]=Segmented.Matrix[r][c+dim[0]];
+            }
+        }
+        return _Inverse;
+    }
+    double Det(vector<int> memo={},int cRow=0){
         
-        if(memo.empty())memo.resize(M.dim[0],0);
+        if(memo.empty())memo.resize(dim[0],0);
         double Result=0;
         int sign=-1;
-        for (int i = 0; i < M.dim[0]; i++) {
+        for (int i = 0; i < dim[0]; i++) {
             if(memo[i]==0){
                 sign*=-1;
                 memo[i]=1;
-                 if(cRow==M.dim[0]-1){
-                    //cout <<  "End Det ("<<cRow<<","<<i<<") => "<<M.Matrix[cRow][i]<<" r " <<Result<< endl;
-                    return M.Matrix[cRow][i];
+                 if(cRow==dim[0]-1){
+                    //cout <<  "End Det ("<<cRow<<","<<i<<") => "<<Matrix[cRow][i]<<" r " <<Result<< endl;
+                    return Matrix[cRow][i];
                 }
                 
                 
-                Result+=M.Matrix[cRow][i]*Det(M,memo,cRow+1)*sign;
-                //cout<<"I Det ("<<cRow<<","<<i<<") => "<< M.Matrix[cRow][i]*pow(-1,i)<<" r "<<Result<<endl;
+                Result+=Matrix[cRow][i]*Det(memo,cRow+1)*sign;
+                //cout<<"I Det ("<<cRow<<","<<i<<") => "<< Matrix[cRow][i]*pow(-1,i)<<" r "<<Result<<endl;
                 memo[i]=0;
             }
             
@@ -167,24 +186,23 @@ class Matrix2D{
         return Result;
     }
     
-     static double NDet(Matrix2D &M,vector<int> PassedCoulmn={},vector<int> PassedRow={},int cRow=0){
-        
-        if(PassedCoulmn.empty())PassedCoulmn.resize(M.dim[0],0);
-        if(PassedRow.empty())PassedRow.resize(M.dim[0],0);
+    double NDet(vector<int>PassedCoulmn={},vector<int> PassedRow={},int cRow=0){
+        if(PassedCoulmn.empty())PassedCoulmn.resize(dim[0],0);
+        if(PassedRow.empty())PassedRow.resize(dim[0],0);
         double Result=0;
         int sign=-1;
         if(PassedRow[cRow])++cRow;
-        if(cRow==M.dim[0]){
+        if(cRow==dim[0]){
                     // cout <<  "End Det ("<<cRow<<","<<") => "<<Result<< endl;
                     return 1;
         }
-        for (int i = 0; i < M.dim[0]; i++) {
+        for (int i = 0; i < dim[0]; i++) {
             if(PassedCoulmn[i]==0){
                 sign*=-1;
                  
                 PassedCoulmn[i]=PassedRow[cRow]=1;
-                Result+=M.Matrix[cRow][i]*NDet(M,PassedCoulmn,PassedRow,cRow+1)*sign;
-                // cout<<"I Det ("<<cRow<<","<<i<<") => "<< M.Matrix[cRow][i]*pow(-1,i)<<" r "<<Result<<endl;
+                Result+=Matrix[cRow][i]*NDet(PassedCoulmn,PassedRow,cRow+1)*sign;
+                // cout<<"I Det ("<<cRow<<","<<i<<") => "<< Matrix[cRow][i]*pow(-1,i)<<" r "<<Result<<endl;
                  PassedCoulmn[i]=0;
             }
             
@@ -208,7 +226,7 @@ class Matrix2D{
     }
     
     //5-OPERATION on Matrix ->RREF:
-    static Matrix2D SwapRows(int R1,int R2,vector<vector<double>>&Matrix ){
+    static Matrix2D SwapRows(int R1,int R2,vector<vector<double>>&Matrix){
          swap(Matrix[R1],Matrix[R2]);
          return Matrix;
     }
@@ -219,7 +237,7 @@ class Matrix2D{
         return Matrix;
     }
     static Matrix2D MultipleRow(int R,double C,vector<vector<double>>&Matrix){
-        for (int i = 0; i < Matrix[0].size(); i++) {
+        for (int i = 0; i < Matrix.size(); i++) {
             //cout<<Matrix[R][i];
             if(Matrix[R][i]!=0)
             Matrix[R][i]*=C;
@@ -231,15 +249,15 @@ class Matrix2D{
     static Matrix2D SegmentedMatrix(const Matrix2D &M ,const Matrix2D &M2){
     if(M.dim[0]!=M2.dim[0]){cout<<"unAllowed to Segmented them";throw "SegmentedMatrix Error";}
     vector<vector<double>> SegmentedM(M.dim[0],vector<double>(M.dim[1]+M2.dim[1]));
-    
     for (int r = 0; r < M.dim[0]; r++) {
         for (int c = 0; c <M.dim[1]; c++) {
             SegmentedM[r][c]=M.Matrix[r][c];
         }
         for (int c = 0; c <M2.dim[1]; c++) {
-            SegmentedM[r][c+M2.dim[1]]=M2.Matrix[r][c];
+            SegmentedM[r][c+M.dim[1]]=M2.Matrix[r][c];
         }
     }
+    
     return SegmentedM;
     }
     
@@ -263,7 +281,7 @@ class Matrix2D{
                 cout<<"\n Phase 1 Init\n";
                 if(_RREF[i][i]==0)
                     for (int j = i+1; j < dim[0]; j++) 
-                        if(_RREF[j][i]!=0){Matrix2D::SwapRows(i,j,_RREF);break;};
+                        if(_RREF[j][i]!=0){ Matrix2D::SwapRows(i,j,_RREF);break;};
                         
                 Matrix2D::print(_RREF);
                 cout<<"\nPhase 2 swap \n";
@@ -275,9 +293,9 @@ class Matrix2D{
                     cout<<"\n Phase 3 Multiplication\n";
                     
                     for (int j = 0; j < dim[0]; j++) {
-                        cout<<i<<" :"<<j<< "  "<< (_RREF[i][j]!=0 && i!=j) <<" "<<_RREF[i][j] ;
-                        if(_RREF[j][i]!=0 && i!=j ){Matrix2D::AddRow(j,i,-1*(_RREF[j][i]/_RREF[i][i]),_RREF);cout<<" X ";}
-                        cout<<endl;
+                        // cout<<i<<" :"<<j<< "  "<< (_RREF[i][j]!=0 && i!=j) <<" "<<_RREF[i][j] ;
+                        if(_RREF[j][i]!=0 && i!=j ){ Matrix2D::AddRow(j,i,-1*(_RREF[j][i]/_RREF[i][i]),_RREF);}
+                        
                     }
                     Matrix2D::print(_RREF);
                     cout<<"\n Phase 4 Elimanation\n";
@@ -304,41 +322,46 @@ int main()
         {3,9,2},
         {9,4,5}
     };
-     vector<vector<double>>M3={
-        {1,1,1},
-        {2,3,2},
-        {1,2,2}
-        
-    };
     vector<vector<double>>M2={
         {2,0,0,0},
         {0,2,0,0},
         {0,0,2,0},
         {0,0,0,2}
     };
-    
+     vector<vector<double>>M3={
+        {1,1,1},
+        {2,3,2},
+        {1,2,2}
+        
+    };
     Matrix2D m(M);
     Matrix2D m2(M2);
     Matrix2D m3(M3);
-    // m.display();
-    //m2.display();
-   // m2.Transpose().display();
-    //m2.Transpose();
-    cout << "Multiple!\n";
-   // Matrix2D::MultipleMatrices(m2,m);
-    cout<<"Det\n";
-    //cout<<Matrix2D::Det(m3);
-    
-    //Matrix2D::Cofactor(m).display();
-    cout<<Matrix2D::Det(m);
+    cout<<"M1 :\n";
+    m.display();
+    cout<<"M2 :\n";
+    m2.display();
+    cout<<"M3 :\n";
+    m3.display();
+    cout<<"Transpose M1 :\n";
+    m.TransposeMatix().display();
+    cout << "Multiple M3*M\n";
+    Matrix2D::MultipleMatrices(m3,m).display();
+    cout << "Multiple M*M3\n";
+    Matrix2D::MultipleMatrices(m,m3).display();
+    cout<<"Det M3 :";
+    cout<< m3.Det()<<endl;
+    cout<< "Cofactor M\n";
+    Matrix2D::print(m.Cofactor());
+    // cout<<Det(m);
     cout<<"\nRReF\n";
-    //m.RREF().display();
-    
-    //m2.RREF();
-    cout << "SegmentedMatrix" <<endl;
+    m.RREF().display();
+    cout << "SegmentedMatrix (M3|I)" <<endl;
     Matrix2D::SegmentedMatrix(M3,Matrix2D::IDENTITY(3)).RREF().display();
-    cout << "adjoint" <<endl;
-    Matrix2D::Adjoint(m3).display();
+    cout << "Adjoint M3" <<endl;
+     m3.Adjoint().display();
+    cout<<"_Inverse M3\n";
+    Matrix2D::print(m3.InveresMatrix());
     cout<<"End Program\n";
     return 0;
 }
